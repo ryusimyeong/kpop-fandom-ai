@@ -1,0 +1,39 @@
+{
+  "name": "kpop-fandom-ai",
+  "version": "0.1.0",
+  "private": true,
+  "description": "K-pop 글로벌 팬을 위한 AI 어시스턴트 — 팬 Q&A 봇 + 덕질 용어 사전 (Next.js + GraphQL + Storybook PoC)",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint",
+    "storybook": "storybook dev -p 6006",
+    "build-storybook": "storybook build"
+  },
+  "dependencies": {
+    "@apollo/client": "^3.11.8",
+    "@apollo/server": "^4.11.0",
+    "@as-integrations/next": "^3.2.0",
+    "graphql": "^16.9.0",
+    "graphql-tag": "^2.12.6",
+    "next": "^15.0.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1"
+  },
+  "devDependencies": {
+    "@storybook/addon-essentials": "8.6.14",
+    "@storybook/react": "8.6.14",
+    "@storybook/react-vite": "8.6.14",
+    "@types/node": "^20",
+    "@types/react": "^18",
+    "@types/react-dom": "^18",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.20",
+    "postcss": "^8.4.47",
+    "storybook": "8.6.14",
+    "tailwindcss": "^3.4.13",
+    "typescript": "^5.6.0",
+    "vite": "^5.4.11"
+  }
+}

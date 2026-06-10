@@ -1,5 +1,10 @@
 /**
  * @file ChatBubble 스토리. 사용자/봇/로딩/근거칩 등 상태별 변형을 문서화.
+ *
+ * [학습 메모] Storybook을 처음 도입하며 의식한 것: 컴포넌트를 앱 실행 없이 "상태별로" 따로 띄워본다는 점.
+ * 특히 loading·empty·error 같이 평소 재현이 번거로운 상태를 스토리로 고정해두면, 디자인 QA와
+ * 회귀 확인이 쉬워진다. 실무에서 공통 컴포넌트(@teamlink/ui 등)는 만들어봤지만 Storybook 문서화는
+ * 안 해봤어서, 그 갭을 메우려고 상태별 스토리를 일부러 여러 개 만들었다.
  */
 import type { Meta, StoryObj } from '@storybook/react';
 import { ChatBubble } from '@/components/ChatBubble';

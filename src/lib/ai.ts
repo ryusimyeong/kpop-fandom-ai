@@ -6,6 +6,11 @@
  * - 검색(retrieve) → 컨텍스트 주입(augment) → 생성(generate)의 RAG 흐름을 그대로 보여준다.
  * - `ANTHROPIC_API_KEY`가 없으면 규칙 기반 fallback으로 동작해 데모/CI가 절대 깨지지 않게 한다.
  *   (실제 운영이라면 LLM 호출, PoC 데모라면 fallback — 둘 다 같은 인터페이스)
+ *
+ * [학습 메모] RAG의 핵심은 "모델이 아는 것"이 아니라 "내가 준 컨텍스트"로 답하게 만드는 것.
+ * 그래서 system 프롬프트에 "Answer ONLY from the provided context"를 명시하고, 답변에 근거 id(`sources`)를
+ * 함께 반환해 환각(hallucination)을 추적·억제하도록 설계했다. 실무(말랑톡)의 실시간 AI 대화 경험을
+ * 엔터 도메인 + GraphQL 데이터 소스로 옮겨보며 RAG 패턴을 직접 익히는 것이 이 토이의 목표였다.
  */
 import type { Artist, FandomTerm } from '@/data/seed';
 

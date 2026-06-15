@@ -52,7 +52,11 @@ export function ChatPanel() {
             {m.text}
           </ChatBubble>
         ))}
-        {loading && <ChatBubble role="bot" loading children="" />}
+        {loading && (
+          <ChatBubble role="bot" loading>
+            {''}
+          </ChatBubble>
+        )}
       </div>
       <div className="flex gap-2 border-t border-gray-100 p-3">
         <input

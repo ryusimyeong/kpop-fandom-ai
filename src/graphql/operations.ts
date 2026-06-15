@@ -27,6 +27,33 @@ export const GET_ARTISTS = gql`
   }
 `;
 
+export const GET_ARTISTS_CONNECTION = gql`
+  query GetArtistsConnection($first: Int, $after: String) {
+    artistsConnection(first: $first, after: $after) {
+      edges {
+        cursor
+        node {
+          id
+          name
+          debutYear
+          agency
+          bio
+          albums {
+            id
+            title
+            releaseYear
+            trackCount
+          }
+        }
+      }
+      pageInfo {
+        hasNextPage
+        endCursor
+      }
+    }
+  }
+`;
+
 export const GET_TERMS = gql`
   query GetTerms($category: TermCategory, $search: String) {
     terms(category: $category, search: $search) {

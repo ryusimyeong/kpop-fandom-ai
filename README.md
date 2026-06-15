@@ -43,6 +43,9 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 | Framework | Next.js 15 (App Router), React 18, TypeScript | Route Handler로 GraphQL 엔드포인트 노출 |
 | GraphQL (서버) | Apollo Server + `@as-integrations/next` | 스키마(SDL)·리졸버·Query/Mutation 직접 작성 |
 | GraphQL (클라이언트) | Apollo Client + InMemoryCache | 쿼리/뮤테이션, 변수·필터, 정규화 캐시 |
+| DB / ORM | Prisma + SQLite | 리졸버가 인메모리 배열이 아닌 실제 DB 조회 |
+| N+1 방지 | DataLoader (요청 범위) | `Artist.albums`를 key 모아 1쿼리로 배치 로딩 |
+| 페이지네이션 | cursor 기반 (Relay 스타일) | `artistsConnection(first, after)` + opaque cursor |
 | AI | Anthropic Claude (RAG) | 키 없으면 규칙 기반 fallback |
 | 컴포넌트 문서화 | Storybook 8 (Vite) | 상태별 스토리(loading/empty/variant) |
 | Styling | Tailwind CSS | |
@@ -78,10 +81,24 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 
 ## GraphQL 구조
 
-- **Schema** (`src/graphql/schema.ts`): `Artist`·`Album`·`FandomTerm`·`AskAnswer` + `Query { artists, artist, terms }` + `Mutation { ask }`
-- **Resolvers** (`src/graphql/resolvers.ts`): Query는 검색/필터, `ask`는 RAG 답변 생성
+- **Schema** (`src/graphql/schema.ts`): `Artist`·`Album`·`FandomTerm`·`AskAnswer`·`ArtistConnection`/`ArtistEdge`/`PageInfo` + `Query { artists, artistsConnection, artist, terms }` + `Mutation { ask }`
+- **Resolvers** (`src/graphql/resolvers.ts`): Query는 Prisma DB 조회(검색/필터/페이징), `Artist.albums`는 DataLoader 배치, `ask`는 RAG 답변 생성
+- **DB** (`prisma/schema.prisma`, `src/lib/prisma.ts`): SQLite + Prisma. `prisma/seed.ts`가 `src/data/seed.ts`의 가상 데이터를 DB에 적재. PrismaClient는 싱글턴으로 dev HMR 커넥션 누수 방지
+- **DataLoader** (`src/graphql/loaders.ts`): `Artist.albums`를 요청 범위 로더로 배치 → `WHERE artistId IN (...)` 한 방으로 N+1 제거. 컨텍스트(`src/graphql/context.ts`)에서 요청마다 새 로더 생성(요청 격리)
+- **Cursor 페이지네이션** (`src/graphql/pagination.ts`): `artistsConnection(first, after)` — `edges{ node, cursor }` + `pageInfo{ hasNextPage, endCursor }`. cursor는 id 기반 base64 opaque. `first+1` 조회로 `hasNextPage` 판단
 - **Operations** (`src/graphql/operations.ts`): 클라이언트 쿼리/뮤테이션 문서(변수·필드 선택)
 - **Endpoint**: `POST /api/graphql` (Apollo Sandbox로 탐색 가능)
+
+### N+1 / 페이지네이션을 직접 확인하기
+
+```graphql
+# cursor 페이지네이션: first개씩 + 다음 페이지는 endCursor를 after로
+{ artistsConnection(first: 1) {
+    edges { cursor node { id name albums { title } } }
+    pageInfo { hasNextPage endCursor }
+} }
+```
+여러 Artist를 조회해도 `albums`는 DataLoader가 모아 **단 한 번의 album 쿼리**로 가져온다(N+1 제거).
 
 ## Storybook으로 문서화한 컴포넌트
 
@@ -94,18 +111,25 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 ## 실행
 
 ```bash
-pnpm install
+pnpm install        # postinstall에서 prisma generate 자동 실행
 
-pnpm dev            # 앱: http://localhost:3000
+pnpm db:setup       # SQLite 스키마 생성(db push) + 가상 데이터 시드
+# (= pnpm db:push && pnpm db:seed)
+
+pnpm dev            # 앱: http://localhost:3000  (GraphQL: /api/graphql)
 pnpm storybook      # 스토리북: http://localhost:6006
 
 pnpm lint           # ESLint (flat config)
-pnpm test           # Vitest 단위 테스트
-pnpm build          # 프로덕션 빌드
+pnpm test           # Vitest 단위 테스트 (DB 불필요 — 순수 로직/mock)
+pnpm build          # prisma generate → 프로덕션 빌드
 
 # (선택) LLM 답변 켜기
 cp .env.example .env.local   # ANTHROPIC_API_KEY 입력
 ```
+
+> 테스트는 DB에 의존하지 않습니다(DataLoader 배치/cursor 로직은 mock·순수 함수로 검증, RAG는 seed 배열 사용).
+> 앱을 **실행**해 GraphQL로 데이터를 조회하려면 `pnpm db:setup`으로 SQLite를 한 번 준비하세요.
+> `dev.db`는 커밋되지 않으며(시드로 재생성), `lint`/`test`/`build`는 DB 없이도 통과합니다.
 
 `lint` · `test` · `build` 모두 통과하도록 품질 인프라를 갖췄습니다.
 
@@ -114,15 +138,19 @@ cp .env.example .env.local   # ANTHROPIC_API_KEY 입력
 ## 폴더 구조
 
 ```
+prisma/
+├─ schema.prisma             # Artist · Album · FandomTerm (SQLite)
+└─ seed.ts                   # src/data/seed.ts → DB 시드
+
 src/
 ├─ app/
-│  ├─ api/graphql/route.ts   # Apollo Server (Route Handler)
+│  ├─ api/graphql/route.ts   # Apollo Server (Route Handler) + per-request context
 │  ├─ layout.tsx             # Apollo Provider 주입
 │  └─ page.tsx               # 챗봇 + 사전 화면
 ├─ components/               # 프레젠테이션 + 컨테이너 컴포넌트
-├─ graphql/                  # schema · resolvers · operations
-├─ lib/                      # apollo client/provider · ai(RAG)
-├─ data/seed.ts              # 허구 샘플 데이터
+├─ graphql/                  # schema · resolvers · operations · loaders · pagination · context
+├─ lib/                      # apollo client/provider · prisma(싱글턴) · ai(RAG)
+├─ data/seed.ts              # 허구 샘플 데이터 (시드의 단일 소스)
 └─ stories/                  # Storybook 스토리
 ```
 
@@ -132,8 +160,17 @@ src/
 
 이 프로젝트는 **학습용 PoC**라 의도적으로 범위를 좁혔습니다.
 
-- 데이터는 인메모리 허구 데이터 — 실제 DB·인증·실서비스 데이터는 범위 밖.
-- GraphQL 페이지네이션(cursor 기반)·DataLoader(N+1 방지)·구독(Subscription)은 아직 미구현 — 다음 학습 대상.
-- 단위 테스트(RAG fallback 로직)는 작성했으나, E2E·컴포넌트 렌더 테스트는 범위 밖 — 다음 단계.
+**구현함(프로덕션 관심사를 직접 다룸)**
+- 리졸버를 **Prisma + SQLite** DB 조회로 전환(인메모리 배열 → 실제 DB).
+- **DataLoader로 N+1 제거**: `Artist.albums`를 요청 범위 로더로 배치 로딩.
+- **cursor 기반 페이지네이션**: `artistsConnection(first, after)` (Relay 스타일, opaque cursor).
+- 단위 테스트: RAG fallback + DataLoader 배치 동작 + cursor encode/decode·hasNextPage 로직.
+
+**여전히 범위 밖(솔직하게)**
+- DB는 단일 파일 SQLite·허구 데이터 — 인증·실서비스 데이터·마이그레이션 운영은 범위 밖.
+- GraphQL 구독(Subscription)·필드 단위 권한·rate limit은 미구현.
+- 페이지네이션은 forward(`first/after`)만 — backward(`last/before`)·`totalCount`는 미구현.
+- 데이터 양이 작아 N+1 개선 효과는 "구조로 증명"한 것(부하 테스트로 수치화는 안 함).
+- E2E·컴포넌트 렌더 테스트는 범위 밖 — 다음 단계.
 
 "완성된 제품"이 아니라 **새 기술을 빠르게 익혀 동작하는 형태로 만들어내는 과정**을 보여주는 것이 목적입니다.

@@ -99,9 +99,15 @@ pnpm install
 pnpm dev            # 앱: http://localhost:3000
 pnpm storybook      # 스토리북: http://localhost:6006
 
+pnpm lint           # ESLint (flat config)
+pnpm test           # Vitest 단위 테스트
+pnpm build          # 프로덕션 빌드
+
 # (선택) LLM 답변 켜기
 cp .env.example .env.local   # ANTHROPIC_API_KEY 입력
 ```
+
+`lint` · `test` · `build` 모두 통과하도록 품질 인프라를 갖췄습니다.
 
 키를 넣지 않아도 챗봇은 규칙 기반 답변으로 동작합니다.
 
@@ -128,6 +134,6 @@ src/
 
 - 데이터는 인메모리 허구 데이터 — 실제 DB·인증·실서비스 데이터는 범위 밖.
 - GraphQL 페이지네이션(cursor 기반)·DataLoader(N+1 방지)·구독(Subscription)은 아직 미구현 — 다음 학습 대상.
-- 테스트 코드 미작성.
+- 단위 테스트(RAG fallback 로직)는 작성했으나, E2E·컴포넌트 렌더 테스트는 범위 밖 — 다음 단계.
 
 "완성된 제품"이 아니라 **새 기술을 빠르게 익혀 동작하는 형태로 만들어내는 과정**을 보여주는 것이 목적입니다.

@@ -8,3 +8,11 @@ storybook-static/
 *.log
 .DS_Store
 next-env.d.ts
+
+# Prisma — 생성물/로컬 DB는 커밋하지 않음 (빌드/시드 시 재생성)
+/prisma/dev.db
+/prisma/dev.db-journal
+prisma/*.db
+prisma/*.db-journal
+.prisma/
+node_modules/.prisma/

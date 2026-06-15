@@ -9,10 +9,14 @@ import { startServerAndCreateNextHandler } from '@as-integrations/next';
 import { NextRequest } from 'next/server';
 import { typeDefs } from '@/graphql/schema';
 import { resolvers } from '@/graphql/resolvers';
+import { createContext, type GraphQLContext } from '@/graphql/context';
 
-const server = new ApolloServer({ typeDefs, resolvers });
+const server = new ApolloServer<GraphQLContext>({ typeDefs, resolvers });
 
-const handler = startServerAndCreateNextHandler<NextRequest>(server);
+// context 콜백은 요청마다 호출된다 → 요청마다 새 DataLoader 세트를 만들어 요청을 격리한다.
+const handler = startServerAndCreateNextHandler<NextRequest, GraphQLContext>(server, {
+  context: async () => createContext(),
+});
 
 export async function GET(request: NextRequest) {
   return handler(request);

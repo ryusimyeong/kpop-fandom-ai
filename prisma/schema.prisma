@@ -1,0 +1,45 @@
+// Prisma schema — K-pop Fandom AI
+//
+// [학습 메모] 인메모리 seed.ts를 실제 DB(SQLite)로 옮겨, 토이지만 "DB 기반 리졸버 +
+// N+1 방지(DataLoader) + cursor 페이지네이션"이라는 프로덕션 관심사를 직접 다뤄보기 위한 스키마.
+// 필드/이름은 기존 src/data/seed.ts의 Artist/Album/FandomTerm 인터페이스와 1:1로 맞춘다.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = "file:./dev.db"
+}
+
+model Artist {
+  id        String  @id
+  name      String
+  debutYear Int
+  agency    String
+  bio       String
+  albums    Album[]
+}
+
+model Album {
+  id          String @id
+  title       String
+  releaseYear Int
+  trackCount  Int
+  // Artist.albums 를 DataLoader로 배치 로딩하기 위한 외래키.
+  artistId    String
+  artist      Artist @relation(fields: [artistId], references: [id])
+
+  @@index([artistId])
+}
+
+model FandomTerm {
+  id        String  @id
+  term      String
+  romanized String
+  // seed.ts의 union('general'|'event'|'rank'|'relationship')을 SQLite에선 String으로 저장.
+  category  String
+  meaning   String
+  example   String?
+}

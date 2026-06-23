@@ -17,6 +17,9 @@ const eslintConfig = [
       'node_modules/**',
       'storybook-static/**',
       'next-env.d.ts',
+      // Playwright E2E 실행 산출물(리포트/임시 결과) — 소스가 아니므로 lint 제외.
+      'playwright-report/**',
+      'test-results/**',
     ],
   },
 ]

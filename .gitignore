@@ -16,3 +16,9 @@ prisma/*.db
 prisma/*.db-journal
 .prisma/
 node_modules/.prisma/
+
+# Playwright — E2E 실행 산출물(리포트/스냅샷/임시 결과)은 커밋하지 않음
+/playwright-report/
+/test-results/
+/.playwright/
+tsconfig.tsbuildinfo

@@ -1,8 +1,10 @@
 # K-pop Fandom AI
 
 > 글로벌 K-pop 팬을 위한 AI 어시스턴트 — **팬 Q&A 봇** + **덕질 용어 사전**.
-> **GraphQL과 Storybook을 직접 익히기 위해 만든 학습용 토이 프로젝트**입니다.
-> Next.js(App Router) · GraphQL(Apollo) · Storybook으로 구성한 아키텍처 PoC.
+> **GraphQL·Storybook·접근성·SSG·성능 측정을 직접 익히기 위해 만든 학습용 토이 프로젝트**입니다.
+> Next.js(App Router) · GraphQL(Apollo + Prisma + DataLoader) · Storybook · Playwright/axe로 구성한 아키텍처 PoC.
+
+> **현대 프론트엔드의 품질 축을 한 프로젝트에서 실증**하는 것을 목표로 했습니다 — 타입 안정성(TS strict), 데이터 레이어(GraphQL/N+1/cursor), **접근성(ARIA·axe 자동검사)**, **성능(Web Vitals·next/font·코드스플리팅)**, **정적 생성(SSG)**, 컴포넌트 문서화(Storybook), E2E(Playwright). *lint·단위테스트(13)·build·storybook 빌드 모두 통과.*
 
 ---
 
@@ -47,7 +49,11 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 | N+1 방지 | DataLoader (요청 범위) | `Artist.albums`를 key 모아 1쿼리로 배치 로딩 |
 | 페이지네이션 | cursor 기반 (Relay 스타일) | `artistsConnection(first, after)` + opaque cursor |
 | AI | Anthropic Claude (RAG) | 키 없으면 규칙 기반 fallback |
-| 컴포넌트 문서화 | Storybook 8 (Vite) | 상태별 스토리(loading/empty/variant) |
+| 컴포넌트 문서화 | Storybook 8 (Vite) + addon-a11y | 상태별 스토리(loading/empty/error/variant) + 스토리별 a11y 패널 |
+| 접근성 (a11y) | 시맨틱·ARIA·키보드 + `@axe-core/playwright` | landmark·`aria-live`·focus-visible, axe로 serious/critical 위반 0 자동검사 |
+| 성능 / Web Vitals | `next/font`·`next/image`·`next/dynamic`·`useReportWebVitals` | CLS 방지(폰트 swap·이미지 치수 예약), 코드스플리팅, LCP/CLS/INP 리포팅 |
+| 정적 생성 (SSG) | `generateStaticParams` + `force-static` | `/artist/[id]`·`/term/[id]`를 빌드타임 정적 HTML로 사전 렌더(+ `generateMetadata` SEO) |
+| E2E | Playwright | 메인 로드·챗·검색 시나리오 + axe a11y 게이트 |
 | Styling | Tailwind CSS | |
 
 ---
@@ -77,6 +83,25 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 - (트러블슈팅) `@storybook/nextjs`(webpack5) + Next 15 조합에서 빌드 충돌이 나서, 컴포넌트가 순수 React임을
   활용해 `@storybook/react-vite`로 교체해 해결. 빌더 차이를 이해하는 계기가 됐다.
 
+**접근성 (a11y)** — *실무에서 성능은 47→98로 정량 관리했지만 a11y는 약했던 갭을 메우려는 의도*
+- 시맨틱 마크업(`main`/`section`/heading 위계)·landmark에 `aria-labelledby`로 이름 부여, 채팅 결과는
+  `role="log"` + `aria-live="polite"` + `aria-busy`로 동적 갱신을 스크린리더에 전달, 장식 이모지는 `aria-hidden`.
+- 키보드: `focus-visible` 스타일, Enter 전송, Tab 순서. 입력창 `label`/`aria-label`.
+- **axe-core를 Playwright E2E에 붙여 위반을 "측정"으로 관리** — serious/critical 0을 품질 게이트로.
+  성능을 점수로 관리하듯 a11y도 점수로 관리하는 습관을 토이에서 들였다.
+
+**성능 / Web Vitals** — *실무 성능 최적화(페이로드 84%↓)를 토이 규모에서 패턴으로 재현*
+- `next/font`로 폰트를 자가호스팅·`display: swap` → 폰트 FOIT/레이아웃 시프트(CLS) 방지.
+- `next/image`로 치수 예약(CLS 방지)·lazy/`priority` 구분, `next/dynamic`으로 무거운 패널 코드스플리팅.
+- `useReportWebVitals`로 LCP/CLS/INP를 수집하는 훅 시연 — "측정 가능한 성능"을 코드로.
+
+**SSG (정적 사이트 생성)** — *공고 우대. SSR은 실무(블립마켓 SEO 60→98)에서 했고, SSG는 토이로 직접*
+- `/artist/[id]`·`/term/[id]`를 `generateStaticParams`로 빌드타임에 모든 id를 사전 렌더(정적 HTML).
+- `export const dynamic = 'force-static'` + `dynamicParams = false`로 **완전한 정적 화이트리스트**(목록 밖 id는 404).
+- 데이터는 Apollo가 아닌 **Prisma를 빌드타임에 직접 조회**(서버 컴포넌트) → 클라 번들에 GraphQL 왕복이 안 섞이고
+  순수 정적 HTML이 떨어진다. `generateMetadata`로 페이지별 SEO(openGraph) 부여.
+- 빌드 로그에서 `● (SSG) /artist/a1, /artist/a2 …`로 정적 생성을 눈으로 확인.
+
 ---
 
 ## GraphQL 구조
@@ -102,9 +127,20 @@ GraphQL 쿼리로 **카테고리 필터·검색**을 처리합니다.
 
 ## Storybook으로 문서화한 컴포넌트
 
-- `ChatBubble` — user / bot / loading / 근거칩
-- `ArtistCard` — 걸그룹 / 보이그룹 / 앨범 없음
-- `TermCard` — 카테고리별 배지 색상 / 예문 유무
+- `ChatBubble` — user / bot / loading / 근거칩 / 긴 텍스트(overflow) / 다국어
+- `ArtistCard` — 걸그룹 / 보이그룹 / 앨범 없음 / 긴 이름·소개
+- `TermCard` — 카테고리별 배지 색상 / 예문 유무 / 긴 풀이
+- `ChatPanel` · `TermDictionary` — MockedProvider로 GraphQL 응답을 모킹한 상호작용 스토리(default/loading/error/empty)
+- 각 스토리는 `addon-a11y` 패널로 위반을 즉석 확인 가능
+
+## 접근성 · E2E 확인하기
+
+```bash
+pnpm test            # Vitest 단위테스트(GraphQL pagination/loaders, RAG fallback) 13종
+pnpm build           # Next 빌드 — SSG 정적 생성(● /artist/[id], /term/[id]) 로그 확인
+pnpm build-storybook # Storybook 정적 빌드(a11y 패널 포함)
+pnpm exec playwright install chromium && pnpm test:e2e  # Playwright E2E + axe a11y 게이트
+```
 
 ---
 

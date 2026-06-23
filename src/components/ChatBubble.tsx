@@ -15,6 +15,9 @@ export interface ChatBubbleProps {
 
 export function ChatBubble({ role, children, sources, loading }: ChatBubbleProps) {
   const isUser = role === 'user';
+  // why: 정렬·색만으로 화자를 구분하면 스크린리더는 누가 한 말인지 알 수 없다.
+  //      sr-only 접두 라벨로 "나의 질문:" / "봇 답변:"을 음성으로만 전달(시각 디자인 불변, WCAG 1.3.1).
+  const speakerLabel = isUser ? '나의 질문: ' : '봇 답변: ';
   return (
     <div className={`flex ${isUser ? 'justify-end' : 'justify-start'} mb-3`}>
       <div
@@ -23,22 +26,33 @@ export function ChatBubble({ role, children, sources, loading }: ChatBubbleProps
         }`}
       >
         {loading ? (
-          <span className="inline-flex gap-1" aria-label="답변 생성 중">
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400" />
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:0.15s]" />
-            <span className="h-2 w-2 animate-bounce rounded-full bg-gray-400 [animation-delay:0.3s]" />
+          // 로딩 도트: 시각 표현(bounce)에 더해 role="status"로 "답변 생성 중"을 보조기술에 전달.
+          <span className="inline-flex gap-1" role="status" aria-label="답변 생성 중">
+            {/* 점들은 순수 장식이므로 aria-hidden. bg-gray-400 → 회색 말풍선(bg-gray-100) 위 대비 보강 위해 bg-gray-500 */}
+            <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-gray-500" />
+            <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.15s]" />
+            <span aria-hidden="true" className="h-2 w-2 animate-bounce rounded-full bg-gray-500 [animation-delay:0.3s]" />
           </span>
         ) : (
-          <div className="whitespace-pre-wrap">{children}</div>
+          <div className="whitespace-pre-wrap">
+            <span className="sr-only">{speakerLabel}</span>
+            {children}
+          </div>
         )}
         {sources && sources.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1">
+          // 근거 칩 목록: 의미상 리스트 → ul/li. 그룹 라벨 aria-label로 "근거"임을 안내.
+          <ul className="mt-2 flex flex-wrap gap-1" aria-label="근거 출처">
             {sources.map((s) => (
-              <span key={s} className="rounded-full bg-white/70 px-2 py-0.5 text-[10px] font-medium text-gray-600">
+              <li
+                key={s}
+                // text-[10px](10px)는 너무 작아 가독성 위험 → text-xs(12px)로 상향.
+                // text-gray-600 → text-gray-700로 반투명 흰 배경 위 대비 보강.
+                className="rounded-full bg-white/80 px-2 py-0.5 text-xs font-medium text-gray-700"
+              >
                 source: {s}
-              </span>
+              </li>
             ))}
-          </div>
+          </ul>
         )}
       </div>
     </div>
